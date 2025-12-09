@@ -1,17 +1,14 @@
 # ===============================================
 # 🌟 AI Cultural Tourism Insights & Engagement Platform
 # 🚀 2025 TRENDING FEATURES: Voice AI, AR Preview, Social Share, Gamification, Live Trends
-# ✅ Fully Debugged for Streamlit Cloud + Colab
+# ✅ Fully Debugged for Streamlit Cloud + Colab (Plotly Only)
 # ===============================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import matplotlib.pyplot as plt
-import seaborn as sns
 import io
-import base64
 import qrcode
 from PIL import Image
 from datetime import datetime
@@ -254,7 +251,7 @@ elif selected_tab=="💬 Smart Chat":
         award_points(25)
 
 # ===============================
-# ANALYTICS DASHBOARD
+# ANALYTICS DASHBOARD (Plotly Only)
 # ===============================
 elif selected_tab=="📊 Analytics Pro":
     st.header("📈 Advanced Analytics Dashboard")
@@ -263,6 +260,7 @@ elif selected_tab=="📊 Analytics Pro":
                     'Rating':[4.6,4.7,4.9,4.5,4.4,4.8],
                     'Growth':[18,25,42,35,33,29]}
     df = pd.DataFrame(metrics_data)
+
     col1,col2=st.columns(2)
     with col1:
         fig1=px.bar(df,x='Feature',y='Rating',color='Growth',title="⭐ Feature Ratings")
@@ -272,7 +270,7 @@ elif selected_tab=="📊 Analytics Pro":
         st.plotly_chart(fig2,use_container_width=True)
 
 # ===============================
-# FOOTER
+# Footer
 # ===============================
 st.markdown("---")
-st.write("🚀 Powered by Gemini Pro + Streamlit")
+st.write("🚀 Powered by Gemini Pro + Streamlit (Plotly Only)")
