@@ -41,7 +41,7 @@ def get_ai_response(prompt, fallback="⚠️ AI response unavailable."):
 # Page config & session
 # -------------------------
 st.set_page_config(page_title="🌟 AI Cultural Tourism Pro 2025", page_icon="🌍", layout="wide")
-st.title("🌍 AI Cultural Tourism Pro 2025 — No AR (CSV-powered, GenAI + Plotly)")
+st.title("🌍 AI Cultural Tourism Pro 2025")
 
 if "points" not in st.session_state:
     st.session_state.points = 0
