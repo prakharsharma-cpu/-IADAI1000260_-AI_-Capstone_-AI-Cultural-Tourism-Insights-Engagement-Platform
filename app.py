@@ -1,7 +1,7 @@
 # ===============================================
 # 🌟 AI Cultural Tourism Insights & Engagement Platform
 # 🚀 2025 TRENDING FEATURES: Voice AI, AR Preview, Social Share, Gamification, Live Trends
-# ✅ Fully Debugged for Streamlit Cloud + Colab (Plotly Only)
+# ✅ Fully Debugged for Streamlit Cloud + Colab (Plotly Only, No QR)
 # ===============================================
 
 import streamlit as st
@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import io
-import qrcode
 from PIL import Image
 from datetime import datetime
 import warnings
@@ -192,19 +191,17 @@ elif selected_tab=="⭐ Smart Recs":
             if st.button("❤️ Like", key=f"like_{idx}"): award_points(25)
 
 # ===============================
-# AR PREVIEW
+# AR PREVIEW (No QR)
 # ===============================
 elif selected_tab=="🔮 AR Preview":
     st.header("🕶️ Augmented Reality Previews")
     dest = st.selectbox("Choose Destination", master_df['Destination Name'].unique()[:10])
     st.image(f"https://picsum.photos/300/400?random=1", use_column_width=True)
-    ar_url = f"https://ar.tryonlink.com/{dest.lower().replace(' ','-')}"
-    qr = qrcode.make(ar_url)
-    st.image(qr, caption="📱 Scan for AR Experience", use_column_width=True)
+    st.markdown(f"🔗 **[View {dest} in AR](https://ar.tryonlink.com/{dest.lower().replace(' ','-')})**")
     award_points(50)
 
 # ===============================
-# SOCIAL SHARE
+# SOCIAL SHARE (No QR)
 # ===============================
 elif selected_tab=="📱 Social Share":
     st.header("📲 Viral Social Sharing")
