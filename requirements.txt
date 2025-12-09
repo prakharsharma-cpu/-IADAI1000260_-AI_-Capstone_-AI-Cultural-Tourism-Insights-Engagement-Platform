@@ -1,0 +1,30 @@
+# Core Web Framework
+Flask==3.0.3
+
+# Streamlit Frontend
+streamlit==1.40.0
+
+# API & Networking
+requests==2.32.3
+
+# Data Handling / Utilities
+python-dateutil==2.9.0.post0
+pytz==2024.1
+uuid==1.30
+
+# For async/thread support (comes with Python but adding safety)
+werkzeug==3.0.3
+click==8.1.7
+itsdangerous==2.2.0
+Jinja2==3.1.4
+
+# Optional but recommended for multimodal AI features
+Pillow==10.4.0
+numpy==1.26.4
+
+# If using audio/video uploads in Streamlit
+moviepy==1.0.3
+
+# If you plan to use OpenAI/Gemini for generation
+openai==1.52.0
+google-generativeai==0.7.2
