@@ -13,4 +13,4 @@ Pillow
 numpy
 pandas
 seaborn
-matplotlib
+matplotlib.pyplot 
