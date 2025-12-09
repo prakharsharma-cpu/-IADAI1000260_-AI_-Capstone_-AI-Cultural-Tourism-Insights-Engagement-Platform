@@ -1,201 +1,153 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 import chromadb
-from chromadb.config import Settings
-from reportlab.lib.pagesizes import A4
+import io
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
-import io
-import os
-from datetime import datetime
+from reportlab.lib.pagesizes import A4
 
-# ============================================================
-# ✅ SECURE GEMINI CONFIG (Matches your new template format)
-# ============================================================
+# -----------------------------------------------------------
+# 🔐 GEMINI API
+# -----------------------------------------------------------
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("⚠️ Gemini API Key missing. Add it in Streamlit Secrets.")
+    st.error("Add GEMINI_API_KEY in Streamlit Secrets")
     st.stop()
 
-# ============================================================
-# ✅ UNIVERSAL AI RESPONSE HANDLER (Template Requirement)
-# ============================================================
-def get_ai_response(prompt, fallback="⚠️ AI error. Try again."):
+def ai(prompt):
     try:
         model = genai.GenerativeModel("gemini-1.5-pro")
-        response = model.generate_content(prompt)
-        return response.text.strip() if hasattr(response, "text") else fallback
-    except Exception as e:
-        return f"{fallback}\nError: {str(e)}"
+        out = model.generate_content(prompt)
+        return out.text
+    except:
+        return "AI Error. Try again."
 
-# ============================================================
-# 🌍 PAGE CONFIG (Template Style)
-# ============================================================
-st.set_page_config(
-    page_title="🌍 GlobeTrack AI — Cultural Tourism",
-    layout="wide"
-)
-
+# -----------------------------------------------------------
+# 🌍 PAGE CONFIG
+# -----------------------------------------------------------
+st.set_page_config(page_title="GlobeTrack AI", layout="wide")
 st.title("🌍 GlobeTrack AI — Cultural Tourism Platform")
-st.write("✨ Personalized trips, recommendations, analytics & AI chatbot — now in a clean template structure!")
+st.write("Simple, clean and powerful AI-driven travel app.")
 
-# ============================================================
-# 📂 Load Datasets (Template: Simple, Cached)
-# ============================================================
+# -----------------------------------------------------------
+# 📂 LOAD DATA
+# -----------------------------------------------------------
 @st.cache_data
 def load_data():
-    try:
-        t1 = pd.read_csv("Tourist_Destinations.csv")
-        t2 = pd.read_csv("tourism_dataset_5000.csv")
-        t3 = pd.read_csv("Worldwide-Travel-Cities-Dataset-Ratings-and-Climate.csv")
-        return t1, t2, t3
-    except Exception as e:
-        st.error(f"Dataset loading error: {e}")
-        st.stop()
+    t1 = pd.read_csv("Tourist_Destinations.csv")
+    t2 = pd.read_csv("tourism_dataset_5000.csv")
+    t3 = pd.read_csv("Worldwide-Travel-Cities-Dataset-Ratings-and-Climate.csv")
+    return t1, t2, t3
 
-tourist_df, travel_df, cities_df = load_data()
+tour_df, travel_df, city_df = load_data()
 
-# ============================================================
-# 🧠 RAG SYSTEM (Simplified into Template Structure)
-# ============================================================
+# -----------------------------------------------------------
+# 🧠 SIMPLE RAG SETUP
+# -----------------------------------------------------------
 @st.cache_resource
-def init_rag():
+def setup_rag():
     try:
-        client = chromadb.PersistentClient(path="./chroma_db")
-        embed = SentenceTransformer("all-MiniLM-L6-v2")
-        return client, embed
+        client = chromadb.PersistentClient(path="./rag_db")
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        col = client.get_or_create_collection("tourism")
+
+        # Insert only small sample to keep simple
+        docs = []
+        ids = []
+        for i, r in tour_df.head(300).iterrows():
+            text = f"{r['Destination Name']} in {r['Country']}"
+            docs.append(text)
+            ids.append(str(i))
+
+        col.add(
+            documents=docs,
+            embeddings=model.encode(docs).tolist(),
+            ids=ids
+        )
+        return col, model
     except:
         return None, None
 
-client, embed_model = init_rag()
+rag, embed = setup_rag()
 
-def build_rag_collection():
-    if client is None:
-        return None
-    try:
-        col = client.get_or_create_collection("tourism_rag")
-        docs, meta, ids = [], [], []
-        for i, row in tourist_df.head(800).iterrows():
-            text = f"{row['Destination Name']} in {row['Country']} (Rating {row['Avg Rating']})"
-            docs.append(text)
-            meta.append({"destination": row["Destination Name"]})
-            ids.append(f"id{i}")
-        col.add(documents=docs, embeddings=embed_model.encode(docs).tolist(), metadatas=meta, ids=ids)
-        return col
-    except:
-        return None
+def rag_search(query):
+    if rag is None:
+        return ""
+    result = rag.query(
+        query_embeddings=embed.encode([query]).tolist(),
+        n_results=3
+    )
+    return "\n".join(result["documents"][0])
 
-rag = build_rag_collection()
-
-# ============================================================
-# 📌 SIDEBAR NAVIGATION
-# ============================================================
-page = st.sidebar.selectbox(
-    "📌 Choose Module",
-    [
-        "📊 Dashboard",
-        "✈️ Itinerary Generator",
-        "⭐ Recommendations",
-        "📄 Export PDF",
-        "🤖 AI Chatbot",
-        "📈 Analytics",
-    ]
+# -----------------------------------------------------------
+# 📌 SIDEBAR
+# -----------------------------------------------------------
+page = st.sidebar.radio(
+    "Choose Section",
+    ["Dashboard", "Itinerary", "Recommendations", "Chatbot", "Export PDF"]
 )
 
-# ============================================================
-# 📊 DASHBOARD PAGE (Template: Clean)
-# ============================================================
-if page == "📊 Dashboard":
-    st.header("📊 Executive Dashboard")
+# -----------------------------------------------------------
+# 📊 DASHBOARD
+# -----------------------------------------------------------
+if page == "Dashboard":
+    st.header("📊 Dashboard")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🌍 Destinations", len(tourist_df))
-    col2.metric("👥 Travelers", len(travel_df))
-    col3.metric("⭐ Avg Rating", round(tourist_df["Avg Rating"].mean(), 2))
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Destinations", len(tour_df))
+    c2.metric("Travellers", len(travel_df))
+    c3.metric("Avg Rating", round(tour_df["Avg Rating"].mean(), 2))
 
-    top = tourist_df.nlargest(10, "Avg Rating")
-    fig = px.bar(top, x="Destination Name", y="Avg Rating", title="Top Rated Destinations")
+    top = tour_df.nlargest(10, "Avg Rating")
+    fig = px.bar(top, x="Destination Name", y="Avg Rating", title="Top Rated Places")
     st.plotly_chart(fig, use_container_width=True)
 
-# ============================================================
-# ✈️ ITINERARY GENERATOR (Template Style)
-# ============================================================
-elif page == "✈️ Itinerary Generator":
-    st.header("✈️ AI-Powered Cultural Itinerary")
+# -----------------------------------------------------------
+# ✈️ ITINERARY
+# -----------------------------------------------------------
+elif page == "Itinerary":
+    st.header("✈️ Create Itinerary")
 
-    interests = st.multiselect("🎯 Interests", ["Culture", "History", "Food", "Art"])
-    days = st.slider("📅 Trip Length", 3, 14, 7)
-    budget = st.selectbox("💰 Budget", ["Low", "Mid", "High"])
-    region = st.selectbox("🌍 Region", ["Europe", "Asia", "Africa", "Americas"])
+    interests = st.multiselect("Interests", ["Culture", "Food", "History", "Art"])
+    days = st.slider("Days", 3, 14)
+    region = st.selectbox("Region", ["Asia", "Europe", "Africa", "Americas"])
 
-    if st.button("✨ Generate Itinerary"):
-        rag_context = ""
-        if rag:
-            q = rag.query(query_texts=[region], n_results=5)
-            rag_context = " • " + "\n • ".join(q["documents"][0])
-
+    if st.button("Generate"):
+        ctx = rag_search(region)
         prompt = f"""
-        Create a detailed {days}-day itinerary:
+        Make a {days}-day trip itinerary.
         Interests: {interests}
         Region: {region}
-        Budget: {budget}
-        Include: culture, history, food, travel, timing, tips.
-        RAG Destinations:
-        {rag_context}
+        Suggested places:
+        {ctx}
         """
 
-        result = get_ai_response(prompt)
-        st.subheader("📜 Your Itinerary")
-        st.write(result)
+        out = ai(prompt)
+        st.write(out)
 
-# ============================================================
+# -----------------------------------------------------------
 # ⭐ RECOMMENDATIONS
-# ============================================================
-elif page == "⭐ Recommendations":
-    st.header("⭐ Smart Destination Recommendations")
+# -----------------------------------------------------------
+elif page == "Recommendations":
+    st.header("⭐ Recommendations")
 
-    interest = st.selectbox("🎯 Primary Interest", ["Culture", "History", "Nature"])
-    season = st.selectbox("🌤️ Best Season", ["Summer", "Winter", "Autumn", "Spring"])
-    n = st.slider("Results", 3, 10, 5)
+    season = st.selectbox("Season", ["Summer", "Winter", "Spring", "Autumn"])
+    count = st.slider("How many?", 3, 10)
 
-    df = tourist_df.copy()
-    df = df[df["Best Season"].str.contains(season, case=False, na=False)]
-    df = df.nlargest(n, "Avg Rating")
+    df = tour_df[tour_df["Best Season"].str.contains(season, case=False, na=False)]
+    df = df.nlargest(count, "Avg Rating")
 
-    st.subheader("🔥 Top Picks")
     st.dataframe(df[["Destination Name", "Country", "Avg Rating"]])
 
-# ============================================================
-# 📄 PDF EXPORT
-# ============================================================
-elif page == "📄 Export PDF":
-    st.header("📄 Generate PDF Itinerary")
-
-    text = st.text_area("Paste itinerary text:")
-    if st.button("📥 Create PDF"):
-        buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=A4)
-        styles = getSampleStyleSheet()
-
-        doc.build([
-            Paragraph("🌍 GlobeTrack AI Itinerary", styles["Title"]),
-            Spacer(1, 12),
-            Paragraph(text, styles["Normal"])
-        ])
-        buf.seek(0)
-
-        st.download_button("⬇️ Download PDF", buf, "itinerary.pdf")
-
-# ============================================================
-# 🤖 AI CHATBOT
-# ============================================================
-elif page == "🤖 AI Chatbot":
-    st.header("🤖 Travel Chatbot")
+# -----------------------------------------------------------
+# 🤖 CHATBOT
+# -----------------------------------------------------------
+elif page == "Chatbot":
+    st.header("🤖 AI Travel Chatbot")
 
     if "chat" not in st.session_state:
         st.session_state.chat = []
@@ -203,27 +155,32 @@ elif page == "🤖 AI Chatbot":
     for m in st.session_state.chat:
         st.chat_message(m["role"]).write(m["content"])
 
-    if q := st.chat_input("Ask anything about travel..."):
+    q = st.chat_input("Ask something...")
+    if q:
         st.session_state.chat.append({"role": "user", "content": q})
-
-        rag_context = ""
-        if rag:
-            r = rag.query(query_texts=[q], n_results=3)
-            rag_context = "\n".join(r["documents"][0])
-
-        answer = get_ai_response(f"Context:\n{rag_context}\n\nUser question: {q}")
+        ctx = rag_search(q)
+        answer = ai(f"Context: {ctx}\n\nQuestion: {q}")
         st.session_state.chat.append({"role": "assistant", "content": answer})
         st.chat_message("assistant").write(answer)
 
-# ============================================================
-# 📈 ANALYTICS
-# ============================================================
-elif page == "📈 Analytics":
-    st.header("📈 Usage Analytics (Simulated)")
+# -----------------------------------------------------------
+# 📄 PDF EXPORT
+# -----------------------------------------------------------
+elif page == "Export PDF":
+    st.header("📄 Export to PDF")
 
-    fake = pd.DataFrame({
-        "Module": ["Itinerary", "Chatbot", "Recommendations", "PDF"],
-        "Rating": [4.8, 4.7, 4.5, 4.6]
-    })
-    fig = px.bar(fake, x="Module", y="Rating", color="Rating")
-    st.plotly_chart(fig)
+    text = st.text_area("Paste your itinerary here")
+
+    if st.button("Create PDF"):
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4)
+        styles = getSampleStyleSheet()
+
+        doc.build([
+            Paragraph("GlobeTrack AI Itinerary", styles["Title"]),
+            Spacer(1, 12),
+            Paragraph(text.replace("\n", "<br/>"), styles["Normal"])
+        ])
+
+        buf.seek(0)
+        st.download_button("Download PDF", buf, "itinerary.pdf")
