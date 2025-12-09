@@ -4,6 +4,7 @@ import plotly.express as px
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 import chromadb
+import os
 import io
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -15,7 +16,7 @@ from reportlab.lib.pagesizes import A4
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("Add GEMINI_API_KEY in Streamlit Secrets")
+    st.error("❌ Missing Gemini API Key. Add it in Streamlit Secrets.")
     st.stop()
 
 def ai(prompt):
@@ -24,7 +25,7 @@ def ai(prompt):
         out = model.generate_content(prompt)
         return out.text
     except:
-        return "AI Error. Try again."
+        return "⚠️ AI Error. Try again."
 
 # -----------------------------------------------------------
 # 🌍 PAGE CONFIG
@@ -34,30 +35,50 @@ st.title("🌍 GlobeTrack AI — Cultural Tourism Platform")
 st.write("Simple, clean and powerful AI-driven travel app.")
 
 # -----------------------------------------------------------
-# 📂 LOAD DATA
+# 📂 SAFE DATA LOADING (UPDATED)
 # -----------------------------------------------------------
 @st.cache_data
 def load_data():
-    t1 = pd.read_csv("Tourist_Destinations.csv")
-    t2 = pd.read_csv("tourism_dataset_5000.csv")
-    t3 = pd.read_csv("Worldwide-Travel-Cities-Dataset-Ratings-and-Climate.csv")
-    return t1, t2, t3
+    required_files = [
+        "Tourist_Destinations.csv",
+        "tourism_dataset_5000.csv",
+        "Worldwide-Travel-Cities-Dataset-Ratings-and-Climate.csv"
+    ]
+
+    loaded = []
+
+    for file in required_files:
+        if not os.path.exists(file):
+            st.error(f"""
+            ❌ **Missing dataset:** `{file}`  
+            👉 Upload this CSV into the **same folder as app.py** in your GitHub repo.
+            """)
+            st.stop()
+
+        try:
+            df = pd.read_csv(file)
+            loaded.append(df)
+        except Exception as e:
+            st.error(f"⚠️ Cannot load `{file}` — {e}")
+            st.stop()
+
+    return loaded[0], loaded[1], loaded[2]
 
 tour_df, travel_df, city_df = load_data()
 
 # -----------------------------------------------------------
-# 🧠 SIMPLE RAG SETUP
+# 🧠 RAG SYSTEM (Simple)
 # -----------------------------------------------------------
 @st.cache_resource
 def setup_rag():
     try:
         client = chromadb.PersistentClient(path="./rag_db")
-        model = SentenceTransformer("all-MiniLM-L6-v2")
-        col = client.get_or_create_collection("tourism")
+        embed = SentenceTransformer("all-MiniLM-L6-v2")
+        col = client.get_or_create_collection("tourism_rag")
 
-        # Insert only small sample to keep simple
         docs = []
         ids = []
+
         for i, r in tour_df.head(300).iterrows():
             text = f"{r['Destination Name']} in {r['Country']}"
             docs.append(text)
@@ -65,20 +86,20 @@ def setup_rag():
 
         col.add(
             documents=docs,
-            embeddings=model.encode(docs).tolist(),
+            embeddings=embed.encode(docs).tolist(),
             ids=ids
         )
-        return col, model
+        return col, embed
     except:
         return None, None
 
 rag, embed = setup_rag()
 
-def rag_search(query):
+def rag_search(q):
     if rag is None:
         return ""
     result = rag.query(
-        query_embeddings=embed.encode([query]).tolist(),
+        query_embeddings=embed.encode([q]).tolist(),
         n_results=3
     )
     return "\n".join(result["documents"][0])
@@ -116,16 +137,15 @@ elif page == "Itinerary":
     days = st.slider("Days", 3, 14)
     region = st.selectbox("Region", ["Asia", "Europe", "Africa", "Americas"])
 
-    if st.button("Generate"):
+    if st.button("Generate Itinerary"):
         ctx = rag_search(region)
         prompt = f"""
-        Make a {days}-day trip itinerary.
+        Make a {days}-day itinerary.
         Interests: {interests}
         Region: {region}
-        Suggested places:
+        Suggested places from database:
         {ctx}
         """
-
         out = ai(prompt)
         st.write(out)
 
@@ -136,7 +156,7 @@ elif page == "Recommendations":
     st.header("⭐ Recommendations")
 
     season = st.selectbox("Season", ["Summer", "Winter", "Spring", "Autumn"])
-    count = st.slider("How many?", 3, 10)
+    count = st.slider("How many places?", 3, 10)
 
     df = tour_df[tour_df["Best Season"].str.contains(season, case=False, na=False)]
     df = df.nlargest(count, "Avg Rating")
@@ -159,17 +179,17 @@ elif page == "Chatbot":
     if q:
         st.session_state.chat.append({"role": "user", "content": q})
         ctx = rag_search(q)
-        answer = ai(f"Context: {ctx}\n\nQuestion: {q}")
+        answer = ai(f"Context:\n{ctx}\n\nQuestion: {q}")
         st.session_state.chat.append({"role": "assistant", "content": answer})
         st.chat_message("assistant").write(answer)
 
 # -----------------------------------------------------------
-# 📄 PDF EXPORT
+# 📄 EXPORT PDF
 # -----------------------------------------------------------
 elif page == "Export PDF":
-    st.header("📄 Export to PDF")
+    st.header("📄 Export Itinerary to PDF")
 
-    text = st.text_area("Paste your itinerary here")
+    text = st.text_area("Paste your itinerary")
 
     if st.button("Create PDF"):
         buf = io.BytesIO()
