@@ -1,8 +1,7 @@
-streamlit==1.25.0
-google-generativeai==0.14.0
-pandas==2.1.1
-numpy==1.26.0
-plotly==5.23.1
-Pillow==10.2.0
-reportlab==4.0.1
-moviepy==2.0.1
+streamlit
+pandas
+numpy
+plotly
+pillow
+google-generativeai
+reportlab
